@@ -5,6 +5,8 @@ import lombok.Data;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+
 @Entity
 @Data
 public class Reservation {
@@ -17,6 +19,7 @@ public class Reservation {
     private int partySize;
     private LocalDateTime dateTime;
 
+    @JsonBackReference
     @ManyToOne
     @JoinColumn(name = "table_id")
     private RestaurantTable table;

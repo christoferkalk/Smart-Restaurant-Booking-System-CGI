@@ -5,6 +5,8 @@ import lombok.Data;
 
 import java.util.List;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+
 @Entity
 @Data
 @Table(name = "restaurant_tables")
@@ -22,6 +24,7 @@ public class RestaurantTable {
     private int xPosition;
     private int yPosition;
 
+    @JsonManagedReference
     @OneToMany(mappedBy = "table", cascade = CascadeType.ALL)
     private List<Reservation> reservations;
 
