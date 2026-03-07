@@ -212,50 +212,51 @@
             });
         }
 
-        function findTables() {
-            const partySize = parseInt(document.getElementById('partySize').value);
-            const zone = document.getElementById('zone').value;
-            const preference = document.getElementById('preference').value;
+        async function findTables() {
+    const partySize = parseInt(document.getElementById('partySize').value);
+    const zone = document.getElementById('zone').value;
+    const preference = document.getElementById('preference').value;
+    const dateTime = document.getElementById('dateTime').value;
 
-            const freeTables = allTables.filter(t => t.reservations.length === 0);
+    let url = '/api/tables';
 
-            // Filtreeri tsooni järgi
-            let filtered = zone ? freeTables.filter(t => t.zone === zone) : freeTables;
+    if (dateTime) {
+        const formatted = dateTime.replace('T', 'T');
+        url = `/api/tables/available?dateTime=${dateTime}:00`;
+    }
 
-            // Skoreeri lauad
-            const scored = filtered.map(table => {
-                let score = 0;
+    const response = await fetch(url);
+    const tables = await response.json();
 
-                // Mida vähem tühje kohti jääb, seda parem
-                const emptySeats = table.capacity - partySize;
-                if (emptySeats >= 0) {
-                    score += 10 - emptySeats;
-                } else {
-                    score -= 100; // liiga väike laud
-                }
+    // Filtreeri tsooni järgi
+    let filtered = zone ? tables.filter(t => t.zone === zone) : tables;
 
-                // Eelistus
-                if (preference && table[preference]) {
-                    score += 5;
-                }
-
-                return { table, score };
-            });
-
-            // Sorteeri skoori järgi
-            scored.sort((a, b) => b.score - a.score);
-
-            // Võta parim
-            const best = scored.filter(s => s.score > 0).slice(0, 1);
-            const recommendedIds = best.map(s => s.table.id);
-
-            renderTables(allTables, recommendedIds);
-
-            if (recommendedIds.length === 0) {
-                alert('Kahjuks sobivat lauda ei leitud!');
-            }
+    // Skoreeri lauad
+    const scored = filtered.map(table => {
+        let score = 0;
+        const emptySeats = table.capacity - partySize;
+        if (emptySeats >= 0) {
+            score += 10 - emptySeats;
+        } else {
+            score -= 100;
         }
+        if (preference && table[preference]) {
+            score += 5;
+        }
+        return { table, score };
+    });
 
+    scored.sort((a, b) => b.score - a.score);
+
+    const best = scored.filter(s => s.score > 0).slice(0, 1);
+    const recommendedIds = best.map(s => s.table.id);
+
+    renderTables(tables, recommendedIds);
+
+    if (recommendedIds.length === 0) {
+        alert('Kahjuks sobivat lauda ei leitud!');
+    }
+}
         loadTables();
     </script>
 </body>
