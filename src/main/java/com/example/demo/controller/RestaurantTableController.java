@@ -3,6 +3,8 @@ package com.example.demo.controller;
 import org.springframework.web.bind.annotation.*;
 import com.example.demo.model.RestaurantTable;
 import com.example.demo.service.RestaurantTableService;
+
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -23,5 +25,11 @@ public class RestaurantTableController {
     @PostMapping
     public RestaurantTable createTable(@RequestBody RestaurantTable table) {
         return tableService.saveTable(table);
+    }
+
+    @GetMapping("/available")
+    public List<RestaurantTable> getAvailableTables(@RequestParam String dateTime) {
+        LocalDateTime parsedDateTime = LocalDateTime.parse(dateTime);
+        return tableService.getAvailableTables(parsedDateTime);
     }
 }
