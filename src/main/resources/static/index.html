@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="et">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Restorani Reserveerimissüsteem</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        #floor-plan {
+            display: grid;
+            grid-template-columns: repeat(6, 120px);
+            grid-template-rows: repeat(4, 120px);
+            gap: 10px;
+            background-color: #e8d5b7;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px auto;
+            width: fit-content;
+        }
+
+        .table {
+            width: 110px;
+            height: 110px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            border: 3px solid transparent;
+            transition: transform 0.1s;
+        }
+
+        .table:hover {
+            transform: scale(1.05);
+        }
+
+        .table.free {
+            background-color: #90EE90;
+            border-color: #228B22;
+            color: #1a5c1a;
+        }
+
+        .table.occupied {
+            background-color: #FFB6B6;
+            border-color: #CC0000;
+            color: #800000;
+        }
+
+        .table.recommended {
+            background-color: #FFD700;
+            border-color: #FFA500;
+            color: #7B4F00;
+        }
+
+        #filters {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+
+        #filters label {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 14px;
+            color: #555;
+        }
+
+        #filters input, #filters select {
+            padding: 8px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #legend {
+            display: flex;
+            gap: 20px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🍽️ Restorani Reserveerimissüsteem</h1>
+
+    <div id="filters">
+        <label>
+            Inimeste arv
+            <input type="number" id="partySize" min="1" max="20" value="2">
+        </label>
+        <label>
+        Kuupäev ja kellaaeg
+        <input type="datetime-local" id="dateTime">
+        </label>
+        <label>
+            Tsoon
+            <select id="zone">
+                <option value="">Kõik tsoonid</option>
+                <option value="Aken">Aken</option>
+                <option value="Sisesaal">Sisesaal</option>
+                <option value="Terrass">Terrass</option>
+                <option value="Privaatsaal">Privaatsaal</option>
+            </select>
+        </label>
+        <label>
+            Eelistus
+            <select id="preference">
+                <option value="">Pole eelistust</option>
+                <option value="windowSeat">Aknakoht</option>
+                <option value="quietCorner">Vaikne nurk</option>
+                <option value="accessible">Ligipääsetav</option>
+            </select>
+        </label>
+        <button onclick="findTables()">Otsi sobivat lauda</button>
+        <button onclick="loadTables()" style="background-color: #888;">Näita kõiki</button>
+    </div>
+
+    <div id="legend">
+        <div class="legend-item">
+            <div class="legend-color" style="background:#90EE90; border: 2px solid #228B22;"></div>
+            <span>Vaba</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background:#FFB6B6; border: 2px solid #CC0000;"></div>
+            <span>Hõivatud</span>
+        </div>
+        <div class="legend-item">
+            <div class="legend-color" style="background:#FFD700; border: 2px solid #FFA500;"></div>
+            <span>Soovitatav</span>
+        </div>
+    </div>
+
+    <div id="floor-plan"></div>
+
+    <script>
+        let allTables = [];
+
+        async function loadTables() {
+            const response = await fetch('/api/tables');
+            allTables = await response.json();
+            renderTables(allTables, []);
+        }
+
+        function renderTables(tables, recommendedIds) {
+            const floorPlan = document.getElementById('floor-plan');
+            floorPlan.innerHTML = '';
+
+            tables.forEach(table => {
+                const isOccupied = table.reservations && table.reservations.length > 0;
+                const isRecommended = recommendedIds.includes(table.id);
+
+                const div = document.createElement('div');
+                div.className = 'table ' + (isRecommended ? 'recommended' : isOccupied ? 'occupied' : 'free');
+                div.style.gridColumn = table.xposition;
+                div.style.gridRow = table.yposition;
+
+                div.innerHTML = `
+                    <span>Laud ${table.id}</span>
+                    <span>${table.capacity} kohta</span>
+                    <span style="font-size:11px">${table.zone}</span>
+                    <span style="font-size:11px">${isOccupied ? '🔴 Hõivatud' : '🟢 Vaba'}</span>
+                `;
+
+                floorPlan.appendChild(div);
+            });
+        }
+
+        function findTables() {
+            const partySize = parseInt(document.getElementById('partySize').value);
+            const zone = document.getElementById('zone').value;
+            const preference = document.getElementById('preference').value;
+
+            const freeTables = allTables.filter(t => t.reservations.length === 0);
+
+            // Filtreeri tsooni järgi
+            let filtered = zone ? freeTables.filter(t => t.zone === zone) : freeTables;
+
+            // Skoreeri lauad
+            const scored = filtered.map(table => {
+                let score = 0;
+
+                // Mida vähem tühje kohti jääb, seda parem
+                const emptySeats = table.capacity - partySize;
+                if (emptySeats >= 0) {
+                    score += 10 - emptySeats;
+                } else {
+                    score -= 100; // liiga väike laud
+                }
+
+                // Eelistus
+                if (preference && table[preference]) {
+                    score += 5;
+                }
+
+                return { table, score };
+            });
+
+            // Sorteeri skoori järgi
+            scored.sort((a, b) => b.score - a.score);
+
+            // Võta parim
+            const best = scored.filter(s => s.score > 0).slice(0, 1);
+            const recommendedIds = best.map(s => s.table.id);
+
+            renderTables(allTables, recommendedIds);
+
+            if (recommendedIds.length === 0) {
+                alert('Kahjuks sobivat lauda ei leitud!');
+            }
+        }
+
+        loadTables();
+    </script>
+</body>
+</html>
