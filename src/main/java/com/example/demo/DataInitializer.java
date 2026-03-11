@@ -25,7 +25,9 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        // Loo lauad
+        if (tableRepository.count() > 0)
+            return;
+
         List<RestaurantTable> tables = List.of(
                 createTable(2, "Aken", true, false, false, 1, 1),
                 createTable(2, "Aken", true, false, false, 1, 2),
@@ -38,16 +40,14 @@ public class DataInitializer implements CommandLineRunner {
 
         tableRepository.saveAll(tables);
 
-        // Genereeri juhuslikud broneeringud
         Random random = new Random();
-        List<RestaurantTable> savedTables = tableRepository.findAll();
-
-        for (RestaurantTable table : savedTables) {
+        for (RestaurantTable table : tableRepository.findAll()) {
             if (random.nextBoolean()) {
                 Reservation reservation = new Reservation();
                 reservation.setCustomerName("Klient " + random.nextInt(100));
                 reservation.setPartySize(random.nextInt(table.getCapacity()) + 1);
-                reservation.setDateTime(LocalDateTime.now().plusHours(random.nextInt(8)));
+                int hour = 11 + random.nextInt(11);
+                reservation.setDateTime(LocalDateTime.now().plusDays(random.nextInt(3)).withHour(hour).withMinute(0));
                 reservation.setTable(table);
                 reservationRepository.save(reservation);
             }
