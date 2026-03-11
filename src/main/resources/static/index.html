@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="et">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -86,7 +87,8 @@
             color: #555;
         }
 
-        #filters input, #filters select {
+        #filters input,
+        #filters select {
             padding: 8px;
             border: 1px solid #ccc;
             border-radius: 5px;
@@ -127,6 +129,7 @@
         }
     </style>
 </head>
+
 <body>
     <h1>🍽️ Restorani Reserveerimissüsteem</h1>
 
@@ -136,8 +139,8 @@
             <input type="number" id="partySize" min="1" max="20" value="2">
         </label>
         <label>
-        Kuupäev ja kellaaeg
-        <input type="datetime-local" id="dateTime">
+            Kuupäev ja kellaaeg
+            <input type="datetime-local" id="dateTime">
         </label>
         <label>
             Tsoon
@@ -179,6 +182,24 @@
 
     <div id="floor-plan"></div>
 
+    <div id="booking-modal"
+        style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:100;">
+        <div style="background:white; padding:30px; border-radius:10px; width:300px; margin:100px auto;">
+            <h3>Broneeri laud</h3>
+            <label>Sinu nimi<br>
+                <input type="text" id="customerName" style="width:100%; padding:8px; margin:8px 0;">
+            </label>
+            <label>Inimeste arv<br>
+                <input type="number" id="bookingPartySize" min="1" max="20"
+                    style="width:100%; padding:8px; margin:8px 0;">
+            </label>
+            <div style="display:flex; gap:10px; margin-top:10px;">
+                <button onclick="confirmBooking()">Broneeri</button>
+                <button onclick="closeModal()" style="background:#888;">Tühista</button>
+            </div>
+        </div>
+    </div>
+
     <script>
         let allTables = [];
 
@@ -208,56 +229,105 @@
                     <span style="font-size:11px">${isOccupied ? '🔴 Hõivatud' : '🟢 Vaba'}</span>
                 `;
 
+                div.onclick = () => {
+                    if (!isOccupied) openBooking(table.id);
+                };
+
                 floorPlan.appendChild(div);
             });
         }
 
         async function findTables() {
-    const partySize = parseInt(document.getElementById('partySize').value);
-    const zone = document.getElementById('zone').value;
-    const preference = document.getElementById('preference').value;
-    const dateTime = document.getElementById('dateTime').value;
+            const partySize = parseInt(document.getElementById('partySize').value);
+            const zone = document.getElementById('zone').value;
+            const preference = document.getElementById('preference').value;
+            const dateTime = document.getElementById('dateTime').value;
 
-    let url = '/api/tables';
+            let url = '/api/tables';
 
-    if (dateTime) {
-        const formatted = dateTime.replace('T', 'T');
-        url = `/api/tables/available?dateTime=${dateTime}:00`;
-    }
+            if (dateTime) {
+                const formatted = dateTime.replace('T', 'T');
+                url = `/api/tables/available?dateTime=${dateTime}:00`;
+            }
 
-    const response = await fetch(url);
-    const tables = await response.json();
+            const response = await fetch(url);
+            const tables = await response.json();
 
-    // Filtreeri tsooni järgi
-    let filtered = zone ? tables.filter(t => t.zone === zone) : tables;
+            // Filtreeri tsooni järgi
+            let filtered = zone ? tables.filter(t => t.zone === zone) : tables;
 
-    // Skoreeri lauad
-    const scored = filtered.map(table => {
-        let score = 0;
-        const emptySeats = table.capacity - partySize;
-        if (emptySeats >= 0) {
-            score += 10 - emptySeats;
-        } else {
-            score -= 100;
+            // Skoreeri lauad
+            const scored = filtered.map(table => {
+                let score = 0;
+                const emptySeats = table.capacity - partySize;
+                if (emptySeats >= 0) {
+                    score += 10 - emptySeats;
+                } else {
+                    score -= 100;
+                }
+                if (preference && table[preference]) {
+                    score += 5;
+                }
+                return { table, score };
+            });
+
+            scored.sort((a, b) => b.score - a.score);
+
+            const best = scored.filter(s => s.score > 0).slice(0, 1);
+            const recommendedIds = best.map(s => s.table.id);
+
+            renderTables(tables, recommendedIds);
+
+            if (recommendedIds.length === 0) {
+                alert('Kahjuks sobivat lauda ei leitud!');
+            }
         }
-        if (preference && table[preference]) {
-            score += 5;
-        }
-        return { table, score };
-    });
-
-    scored.sort((a, b) => b.score - a.score);
-
-    const best = scored.filter(s => s.score > 0).slice(0, 1);
-    const recommendedIds = best.map(s => s.table.id);
-
-    renderTables(tables, recommendedIds);
-
-    if (recommendedIds.length === 0) {
-        alert('Kahjuks sobivat lauda ei leitud!');
-    }
-}
         loadTables();
+
+        let selectedTableId = null;
+
+        function openBooking(tableId) {
+            selectedTableId = tableId;
+            document.getElementById('booking-modal').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('booking-modal').style.display = 'none';
+            selectedTableId = null;
+        }
+
+        async function confirmBooking() {
+            const customerName = document.getElementById('customerName').value;
+            const partySize = parseInt(document.getElementById('bookingPartySize').value);
+            const dateTime = document.getElementById('dateTime').value;
+
+            if (!customerName || !partySize || !dateTime) {
+                alert('Palun täida kõik väljad ja vali kellaaeg!');
+                return;
+            }
+
+            const reservation = {
+                customerName: customerName,
+                partySize: partySize,
+                dateTime: dateTime + ':00',
+                table: { id: selectedTableId }
+            };
+
+            const response = await fetch('/api/reservations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(reservation)
+            });
+
+            if (response.ok) {
+                alert('Broneering õnnestus!');
+                closeModal();
+                loadTables();
+            } else {
+                alert('Broneerimine ebaõnnestus!');
+            }
+        }
     </script>
 </body>
+
 </html>
