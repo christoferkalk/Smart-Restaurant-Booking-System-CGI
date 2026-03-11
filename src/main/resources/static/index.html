@@ -204,8 +204,23 @@
         let allTables = [];
 
         async function loadTables() {
-            const response = await fetch('/api/tables');
-            allTables = await response.json();
+            const now = new Date();
+            const formatted = now.toISOString().slice(0, 16);
+
+            document.getElementById('dateTime').value = formatted;
+
+            const response = await fetch(`/api/tables/available?dateTime=${formatted}:00`);
+            const availableTables = await response.json();
+
+            const allResponse = await fetch('/api/tables');
+            allTables = await allResponse.json();
+
+            const availableIds = availableTables.map(t => t.id);
+            allTables = allTables.map(t => ({
+                ...t,
+                reservations: availableIds.includes(t.id) ? [] : [true]
+            }));
+
             renderTables(allTables, []);
         }
 
